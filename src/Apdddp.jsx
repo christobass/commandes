@@ -8,12 +8,6 @@ const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// Fonction simple de hashing (côté client - pour comparaison seulement)
-// Note: Le vrai hashing bcrypt se fait côté serveur
-const simpleHash = (password) => {
-  return btoa(password); // Simple encodage base64 pour démonstration
-};
-
 // Composant de connexion
 const LoginPage = ({ onLogin }) => {
   const [username, setUsername] = useState('');
@@ -28,38 +22,33 @@ const LoginPage = ({ onLogin }) => {
     setLoading(true);
 
     try {
-      // Récupérer l'utilisateur depuis Supabase
-      const { data: users, error: fetchError } = await supabase
-        .from('app_users')
-        .select('*')
-        .eq('username', username)
-        .eq('is_active', true)
-        .limit(1);
+      console.log('Tentative de connexion pour:', username);
+      
+      // Appeler la fonction PostgreSQL pour vérifier le mot de passe
+      const { data, error: rpcError } = await supabase
+        .rpc('verify_user_password', {
+          p_username: username,
+          p_password: password
+        });
 
-      if (fetchError) throw fetchError;
+      console.log('Résultat RPC:', data);
+      console.log('Erreur RPC:', rpcError);
 
-      if (!users || users.length === 0) {
-        setError('Nom d\'utilisateur ou mot de passe incorrect');
-        setLoading(false);
-        return;
+      if (rpcError) {
+        console.error('Erreur RPC:', rpcError);
+        throw rpcError;
       }
 
-      const user = users[0];
-
-      // Vérification simple du mot de passe
-      // Note: Dans une vraie application, utilisez bcrypt côté serveur
-      const bcrypt = require('bcryptjs');
-      const isValid = bcrypt.compareSync(password, user.password_hash);
-
-      if (!isValid) {
+      if (!data || data.length === 0 || !data[0].is_valid) {
         setError('Nom d\'utilisateur ou mot de passe incorrect');
         setLoading(false);
         return;
       }
 
       // Connexion réussie
+      const user = data[0];
       const userData = {
-        id: user.id,
+        id: user.user_id,
         username: user.username,
         role: user.role,
         full_name: user.full_name,
@@ -71,7 +60,7 @@ const LoginPage = ({ onLogin }) => {
       onLogin(userData);
     } catch (error) {
       console.error('Erreur de connexion:', error);
-      setError('Erreur lors de la connexion. Vérifiez votre connexion.');
+      setError('Erreur lors de la connexion: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -197,19 +186,15 @@ const UserManagement = ({ currentUser, onClose }) => {
     }
 
     try {
-      const bcrypt = require('bcryptjs');
-      const passwordHash = bcrypt.hashSync(newUser.password, 10);
-
-      const { error } = await supabase
-        .from('app_users')
-        .insert([{
-          username: newUser.username,
-          password_hash: passwordHash,
-          role: newUser.role,
-          full_name: newUser.full_name,
-          email: newUser.email,
-          is_active: true
-        }]);
+      // Utiliser la fonction PostgreSQL pour créer l'utilisateur
+      const { data, error } = await supabase
+        .rpc('create_user_with_password', {
+          p_username: newUser.username,
+          p_password: newUser.password,
+          p_role: newUser.role,
+          p_full_name: newUser.full_name || null,
+          p_email: newUser.email || null
+        });
 
       if (error) throw error;
 
@@ -431,30 +416,6 @@ const UserManagement = ({ currentUser, onClose }) => {
     </div>
   );
 };
-
-// Composant principal de l'application
-const OrderTrackingApp = () => {
-  const [currentUser, setCurrentUser] = useState(null);
-  const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [showEditForm, setShowEditForm] = useState(false);
-  const [showUserManagement, setShowUserManagement] = useState(false);
-  const [editingOrder, setEditingOrder] = useState(null);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [orderToDelete, setOrderToDelete] = useState(null);
-  const [filterStatut, setFilterStatut] = useState('Tous');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [newOrder, setNewOrder] = useState({
-    client: '',
-    telephone: '',
-    produit: '',
-    prixAchatYuan: '',
-    tauxChange: 85,
-    prixVenteCFA: '',
-    dateExpedition: '',
-    notes: ''
   });
 
   const statuts = ['Tous', 'Acompte en attente', 'Commandé', 'En transit', 'Arrivé', 'Livré'];
