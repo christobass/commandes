@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Filter, DollarSign, Package, Clock, CheckCircle, Trash2, Edit, X, TrendingUp, Calendar, AlertCircle } from 'lucide-react';
+import { Plus, Search, Filter, DollarSign, Package, Clock, CheckCircle, Trash2, Edit, X, TrendingUp, Calendar, AlertCircle, LogOut, Users, Eye, EyeOff, Shield, User } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 
 // Configuration Supabase
@@ -8,12 +8,439 @@ const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+// Fonction simple de hashing (côté client - pour comparaison seulement)
+// Note: Le vrai hashing bcrypt se fait côté serveur
+const simpleHash = (password) => {
+  return btoa(password); // Simple encodage base64 pour démonstration
+};
+
+// Composant de connexion
+const LoginPage = ({ onLogin }) => {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    try {
+      // Récupérer l'utilisateur depuis Supabase
+      const { data: users, error: fetchError } = await supabase
+        .from('app_users')
+        .select('*')
+        .eq('username', username)
+        .eq('is_active', true)
+        .limit(1);
+
+      if (fetchError) throw fetchError;
+
+      if (!users || users.length === 0) {
+        setError('Nom d\'utilisateur ou mot de passe incorrect');
+        setLoading(false);
+        return;
+      }
+
+      const user = users[0];
+
+      // Vérification simple du mot de passe
+      // Note: Dans une vraie application, utilisez bcrypt côté serveur
+      const bcrypt = require('bcryptjs');
+      const isValid = bcrypt.compareSync(password, user.password_hash);
+
+      if (!isValid) {
+        setError('Nom d\'utilisateur ou mot de passe incorrect');
+        setLoading(false);
+        return;
+      }
+
+      // Connexion réussie
+      const userData = {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+        full_name: user.full_name,
+        email: user.email
+      };
+
+      // Sauvegarder dans localStorage
+      localStorage.setItem('currentUser', JSON.stringify(userData));
+      onLogin(userData);
+    } catch (error) {
+      console.error('Erreur de connexion:', error);
+      setError('Erreur lors de la connexion. Vérifiez votre connexion.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-8 text-white text-center">
+          <Package size={48} className="mx-auto mb-4" />
+          <h1 className="text-3xl font-bold mb-2">Suivi des Commandes</h1>
+          <p className="text-blue-100">Système de gestion</p>
+        </div>
+
+        <form onSubmit={handleLogin} className="p-8 space-y-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Nom d'utilisateur
+            </label>
+            <div className="relative">
+              <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Entrez votre nom d'utilisateur"
+                required
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Mot de passe
+            </label>
+            <div className="relative">
+              <Shield className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Entrez votre mot de passe"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
+            </div>
+          </div>
+
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2">
+              <AlertCircle className="text-red-600 flex-shrink-0 mt-0.5" size={20} />
+              <p className="text-red-800 text-sm">{error}</p>
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 rounded-lg font-medium hover:from-blue-700 hover:to-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? 'Connexion...' : 'Se connecter'}
+          </button>
+
+          <div className="mt-6 pt-6 border-t border-gray-200">
+            <p className="text-xs text-gray-500 text-center mb-2">Comptes de test:</p>
+            <div className="text-xs text-gray-600 space-y-1">
+              <p>👨‍💼 Admin: <span className="font-mono bg-gray-100 px-2 py-1 rounded">christian</span> / <span className="font-mono bg-gray-100 px-2 py-1 rounded">bassole_9696</span></p>
+              <p>👤 User: <span className="font-mono bg-gray-100 px-2 py-1 rounded">user01</span> / <span className="font-mono bg-gray-100 px-2 py-1 rounded">M@tDeP@ss</span></p>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+// Composant de gestion des utilisateurs (Admin uniquement)
+const UserManagement = ({ currentUser, onClose }) => {
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showAddUser, setShowAddUser] = useState(false);
+  const [newUser, setNewUser] = useState({
+    username: '',
+    password: '',
+    role: 'user',
+    full_name: '',
+    email: ''
+  });
+
+  const fetchUsers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('app_users')
+        .select('id, username, role, full_name, email, is_active, created_at')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setUsers(data);
+    } catch (error) {
+      console.error('Erreur lors du chargement des utilisateurs:', error);
+      alert('Erreur lors du chargement des utilisateurs');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const handleAddUser = async () => {
+    if (!newUser.username || !newUser.password) {
+      alert('Nom d\'utilisateur et mot de passe requis');
+      return;
+    }
+
+    try {
+      const bcrypt = require('bcryptjs');
+      const passwordHash = bcrypt.hashSync(newUser.password, 10);
+
+      const { error } = await supabase
+        .from('app_users')
+        .insert([{
+          username: newUser.username,
+          password_hash: passwordHash,
+          role: newUser.role,
+          full_name: newUser.full_name,
+          email: newUser.email,
+          is_active: true
+        }]);
+
+      if (error) throw error;
+
+      alert('Utilisateur créé avec succès !');
+      setNewUser({ username: '', password: '', role: 'user', full_name: '', email: '' });
+      setShowAddUser(false);
+      fetchUsers();
+    } catch (error) {
+      console.error('Erreur lors de la création:', error);
+      alert('Erreur: ' + (error.message || 'Impossible de créer l\'utilisateur'));
+    }
+  };
+
+  const handleToggleActive = async (userId, currentStatus) => {
+    try {
+      const { error } = await supabase
+        .from('app_users')
+        .update({ is_active: !currentStatus })
+        .eq('id', userId);
+
+      if (error) throw error;
+      fetchUsers();
+    } catch (error) {
+      console.error('Erreur:', error);
+      alert('Erreur lors de la mise à jour');
+    }
+  };
+
+  const handleDeleteUser = async (userId, username) => {
+    if (userId === currentUser.id) {
+      alert('Vous ne pouvez pas supprimer votre propre compte !');
+      return;
+    }
+
+    if (!confirm(`Êtes-vous sûr de vouloir supprimer l'utilisateur "${username}" ?`)) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('app_users')
+        .delete()
+        .eq('id', userId);
+
+      if (error) throw error;
+      alert('Utilisateur supprimé');
+      fetchUsers();
+    } catch (error) {
+      console.error('Erreur:', error);
+      alert('Erreur lors de la suppression');
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+        <div className="bg-gradient-to-r from-purple-600 to-indigo-600 p-6 flex justify-between items-center">
+          <div className="flex items-center gap-3 text-white">
+            <Users size={28} />
+            <h2 className="text-2xl font-bold">Gestion des Utilisateurs</h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-white/20 rounded-lg transition text-white"
+          >
+            <X size={24} />
+          </button>
+        </div>
+
+        <div className="p-6">
+          <div className="flex justify-between items-center mb-6">
+            <p className="text-gray-600">{users.length} utilisateur(s)</p>
+            <button
+              onClick={() => setShowAddUser(!showAddUser)}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+            >
+              <Plus size={20} />
+              Nouvel utilisateur
+            </button>
+          </div>
+
+          {showAddUser && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+              <h3 className="font-bold text-gray-900 mb-4">Créer un nouvel utilisateur</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Nom d'utilisateur *</label>
+                  <input
+                    type="text"
+                    value={newUser.username}
+                    onChange={(e) => setNewUser({...newUser, username: e.target.value})}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Mot de passe *</label>
+                  <input
+                    type="password"
+                    value={newUser.password}
+                    onChange={(e) => setNewUser({...newUser, password: e.target.value})}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Nom complet</label>
+                  <input
+                    type="text"
+                    value={newUser.full_name}
+                    onChange={(e) => setNewUser({...newUser, full_name: e.target.value})}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                  <input
+                    type="email"
+                    value={newUser.email}
+                    onChange={(e) => setNewUser({...newUser, email: e.target.value})}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Rôle *</label>
+                  <select
+                    value={newUser.role}
+                    onChange={(e) => setNewUser({...newUser, role: e.target.value})}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="user">Utilisateur</option>
+                    <option value="admin">Administrateur</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex gap-3 mt-4">
+                <button
+                  onClick={handleAddUser}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                >
+                  Créer
+                </button>
+                <button
+                  onClick={() => setShowAddUser(false)}
+                  className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
+                >
+                  Annuler
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="overflow-x-auto max-h-96 overflow-y-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 sticky top-0">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Utilisateur</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rôle</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {users.map(user => (
+                  <tr key={user.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3">
+                      <div>
+                        <p className="font-medium text-gray-900">{user.username}</p>
+                        {user.full_name && (
+                          <p className="text-sm text-gray-500">{user.full_name}</p>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        user.role === 'admin' 
+                          ? 'bg-purple-100 text-purple-800' 
+                          : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {user.role === 'admin' ? '👨‍💼 Admin' : '👤 User'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{user.email || '-'}</td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        user.is_active 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {user.is_active ? 'Actif' : 'Inactif'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleToggleActive(user.id, user.is_active)}
+                          className="text-xs px-3 py-1 bg-yellow-100 text-yellow-800 rounded hover:bg-yellow-200 transition"
+                          title={user.is_active ? 'Désactiver' : 'Activer'}
+                        >
+                          {user.is_active ? 'Désactiver' : 'Activer'}
+                        </button>
+                        {user.id !== currentUser.id && (
+                          <button
+                            onClick={() => handleDeleteUser(user.id, user.username)}
+                            className="text-xs px-3 py-1 bg-red-100 text-red-800 rounded hover:bg-red-200 transition"
+                            title="Supprimer"
+                          >
+                            Supprimer
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Composant principal de l'application
 const OrderTrackingApp = () => {
+  const [currentUser, setCurrentUser] = useState(null);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
+  const [showUserManagement, setShowUserManagement] = useState(false);
   const [editingOrder, setEditingOrder] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [orderToDelete, setOrderToDelete] = useState(null);
@@ -32,6 +459,14 @@ const OrderTrackingApp = () => {
 
   const statuts = ['Tous', 'Acompte en attente', 'Commandé', 'En transit', 'Arrivé', 'Livré'];
 
+  // Vérifier si l'utilisateur est déjà connecté
+  useEffect(() => {
+    const savedUser = localStorage.getItem('currentUser');
+    if (savedUser) {
+      setCurrentUser(JSON.parse(savedUser));
+    }
+  }, []);
+
   // Charger les commandes depuis Supabase
   const fetchOrders = async () => {
     try {
@@ -45,7 +480,6 @@ const OrderTrackingApp = () => {
 
       if (error) throw error;
 
-      // Convertir les noms de colonnes snake_case en camelCase
       const formattedOrders = data.map(order => ({
         id: order.id,
         dateCommande: order.date_commande,
@@ -71,16 +505,27 @@ const OrderTrackingApp = () => {
       setOrders(formattedOrders);
     } catch (error) {
       console.error('Erreur lors du chargement des commandes:', error);
-      setError('Erreur lors du chargement des commandes. Vérifiez que la table existe dans Supabase.');
+      setError('Erreur lors du chargement des commandes.');
     } finally {
       setLoading(false);
     }
   };
 
-  // Charger les commandes au démarrage
   useEffect(() => {
-    fetchOrders();
-  }, []);
+    if (currentUser) {
+      fetchOrders();
+    }
+  }, [currentUser]);
+
+  const handleLogin = (user) => {
+    setCurrentUser(user);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('currentUser');
+    setCurrentUser(null);
+    setOrders([]);
+  };
 
   const getStatutColor = (statut) => {
     const colors = {
@@ -101,11 +546,12 @@ const OrderTrackingApp = () => {
     return new Intl.NumberFormat('fr-FR').format(montant) + ' ¥';
   };
 
-  const calculateFromYuan = (yuan, taux) => {
-    return Math.round(parseFloat(yuan || 0) * parseFloat(taux || 85));
-  };
-
   const handleAddOrder = async () => {
+    if (currentUser.role !== 'admin') {
+      alert('Seuls les administrateurs peuvent ajouter des commandes');
+      return;
+    }
+
     if (!newOrder.client || !newOrder.telephone || !newOrder.produit || !newOrder.prixVenteCFA) {
       alert('Veuillez remplir tous les champs obligatoires');
       return;
@@ -119,7 +565,6 @@ const OrderTrackingApp = () => {
     const arriveeDans28Jours = new Date();
     arriveeDans28Jours.setDate(arriveeDans28Jours.getDate() + 28);
 
-    // Générer un ID unique
     const { data: existingOrders } = await supabase
       .from('orders')
       .select('id')
@@ -162,7 +607,6 @@ const OrderTrackingApp = () => {
 
       if (error) throw error;
 
-      // Recharger les commandes
       await fetchOrders();
       
       setNewOrder({ client: '', telephone: '', produit: '', prixAchatYuan: '', tauxChange: 85, prixVenteCFA: '', dateExpedition: '', notes: '' });
@@ -170,11 +614,15 @@ const OrderTrackingApp = () => {
       alert('Commande ajoutée avec succès !');
     } catch (error) {
       console.error('Erreur lors de l\'ajout:', error);
-      alert('Erreur lors de l\'ajout de la commande. Vérifiez la console pour plus de détails.');
+      alert('Erreur lors de l\'ajout de la commande.');
     }
   };
 
   const handleDeleteClick = (order) => {
+    if (currentUser.role !== 'admin') {
+      alert('Seuls les administrateurs peuvent supprimer des commandes');
+      return;
+    }
     setOrderToDelete(order);
     setShowDeleteConfirm(true);
   };
@@ -199,6 +647,10 @@ const OrderTrackingApp = () => {
   };
 
   const handleEditClick = (order) => {
+    if (currentUser.role !== 'admin') {
+      alert('Seuls les administrateurs peuvent modifier des commandes');
+      return;
+    }
     setEditingOrder({...order});
     setShowEditForm(true);
   };
@@ -251,6 +703,11 @@ const OrderTrackingApp = () => {
   };
 
   const handleStatutChange = async (orderId, newStatut) => {
+    if (currentUser.role !== 'admin') {
+      alert('Seuls les administrateurs peuvent changer le statut');
+      return;
+    }
+
     const order = orders.find(o => o.id === orderId);
     if (!order) return;
 
@@ -297,6 +754,11 @@ const OrderTrackingApp = () => {
     }
   };
 
+  // Si non connecté, afficher la page de connexion
+  if (!currentUser) {
+    return <LoginPage onLogin={handleLogin} />;
+  }
+
   const filteredOrders = orders.filter(order => {
     const matchesStatut = filterStatut === 'Tous' || order.statut === filterStatut;
     const matchesSearch = order.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -314,6 +776,8 @@ const OrderTrackingApp = () => {
     montantRestant: orders.reduce((sum, o) => sum + o.montantRestant, 0)
   };
 
+  const isAdmin = currentUser.role === 'admin';
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center">
@@ -328,21 +792,66 @@ const OrderTrackingApp = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
+        {/* Header with user info */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2 flex items-center gap-3">
-            <Package className="text-blue-600" size={40} />
-            Suivi des Commandes
-          </h1>
-          <p className="text-gray-600">Gérez vos commandes d'ordinateurs depuis la Chine</p>
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+            <div>
+              <h1 className="text-4xl font-bold text-gray-900 mb-2 flex items-center gap-3">
+                <Package className="text-blue-600" size={40} />
+                Suivi des Commandes
+              </h1>
+              <p className="text-gray-600">Système de gestion des commandes</p>
+            </div>
+            
+            <div className="flex items-center gap-3">
+              <div className="bg-white rounded-lg px-4 py-2 shadow-sm border border-gray-200">
+                <div className="flex items-center gap-2">
+                  {isAdmin ? <Shield className="text-purple-600" size={20} /> : <User className="text-blue-600" size={20} />}
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{currentUser.full_name || currentUser.username}</p>
+                    <p className="text-xs text-gray-500">{isAdmin ? 'Administrateur' : 'Utilisateur'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {isAdmin && (
+                <button
+                  onClick={() => setShowUserManagement(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition shadow-sm"
+                  title="Gérer les utilisateurs"
+                >
+                  <Users size={20} />
+                  <span className="hidden md:inline">Utilisateurs</span>
+                </button>
+              )}
+              
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition shadow-sm"
+                title="Se déconnecter"
+              >
+                <LogOut size={20} />
+                <span className="hidden md:inline">Déconnexion</span>
+              </button>
+            </div>
+          </div>
+
+          {!isAdmin && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3">
+              <AlertCircle className="text-blue-600 flex-shrink-0 mt-0.5" size={20} />
+              <div>
+                <p className="text-blue-800 font-medium">Mode consultation</p>
+                <p className="text-blue-600 text-sm mt-1">Vous pouvez visualiser les commandes mais pas les modifier.</p>
+              </div>
+            </div>
+          )}
           
           {error && (
             <div className="mt-4 bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
               <AlertCircle className="text-red-600 flex-shrink-0 mt-0.5" size={20} />
               <div>
-                <p className="text-red-800 font-medium">Erreur de connexion à Supabase</p>
+                <p className="text-red-800 font-medium">Erreur</p>
                 <p className="text-red-600 text-sm mt-1">{error}</p>
-                <p className="text-red-600 text-sm mt-2">Assurez-vous que la table "orders" existe dans votre base de données Supabase.</p>
               </div>
             </div>
           )}
@@ -426,19 +935,29 @@ const OrderTrackingApp = () => {
                 ))}
               </select>
               
-              <button
-                onClick={() => setShowAddForm(true)}
-                className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition shadow-sm"
-              >
-                <Plus size={20} />
-                <span className="hidden md:inline">Nouvelle commande</span>
-              </button>
+              {isAdmin && (
+                <button
+                  onClick={() => setShowAddForm(true)}
+                  className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition shadow-sm"
+                >
+                  <Plus size={20} />
+                  <span className="hidden md:inline">Nouvelle commande</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
 
+        {/* User Management Modal */}
+        {showUserManagement && isAdmin && (
+          <UserManagement 
+            currentUser={currentUser}
+            onClose={() => setShowUserManagement(false)}
+          />
+        )}
+
         {/* Add Order Modal */}
-        {showAddForm && (
+        {showAddForm && isAdmin && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
               <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex justify-between items-center">
@@ -585,8 +1104,8 @@ const OrderTrackingApp = () => {
           </div>
         )}
 
-        {/* Edit Order Modal */}
-        {showEditForm && editingOrder && (
+        {/* Edit Order Modal - Similar to Add Order but with edit functionality */}
+        {showEditForm && editingOrder && isAdmin && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
               <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex justify-between items-center">
@@ -759,31 +1278,39 @@ const OrderTrackingApp = () => {
                   </div>
                   
                   <div className="flex gap-2">
-                    <select
-                      className="px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      value={order.statut}
-                      onChange={(e) => handleStatutChange(order.id, e.target.value)}
-                    >
-                      {statuts.filter(s => s !== 'Tous').map(statut => (
-                        <option key={statut} value={statut}>{statut}</option>
-                      ))}
-                    </select>
-                    
-                    <button
-                      onClick={() => handleEditClick(order)}
-                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
-                      title="Modifier"
-                    >
-                      <Edit size={18} />
-                    </button>
-                    
-                    <button
-                      onClick={() => handleDeleteClick(order)}
-                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
-                      title="Supprimer"
-                    >
-                      <Trash2 size={18} />
-                    </button>
+                    {isAdmin ? (
+                      <>
+                        <select
+                          className="px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          value={order.statut}
+                          onChange={(e) => handleStatutChange(order.id, e.target.value)}
+                        >
+                          {statuts.filter(s => s !== 'Tous').map(statut => (
+                            <option key={statut} value={statut}>{statut}</option>
+                          ))}
+                        </select>
+                        
+                        <button
+                          onClick={() => handleEditClick(order)}
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                          title="Modifier"
+                        >
+                          <Edit size={18} />
+                        </button>
+                        
+                        <button
+                          onClick={() => handleDeleteClick(order)}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
+                          title="Supprimer"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </>
+                    ) : (
+                      <span className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-xs font-medium">
+                        {order.statut}
+                      </span>
+                    )}
                   </div>
                 </div>
 
