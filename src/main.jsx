@@ -1,4 +1,5 @@
 import React from 'react'
+import OrderTrackingApp from './order-tracking-app-with-auth';
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
 import './index.css'
