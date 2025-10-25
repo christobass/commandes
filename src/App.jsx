@@ -1,52 +1,17 @@
-import React, { useState } from 'react';
-import { Plus, Search, Filter, DollarSign, Package, Clock, CheckCircle, Trash2, Edit, X, TrendingUp, Calendar } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Plus, Search, Filter, DollarSign, Package, Clock, CheckCircle, Trash2, Edit, X, TrendingUp, Calendar, AlertCircle } from 'lucide-react';
+import { createClient } from '@supabase/supabase-js';
+
+// Configuration Supabase
+const supabaseUrl = 'https://pzailvvjosssdluuabaj.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB6YWlsdnZqb3Nzc2RsdXVhYmFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA5OTMzNDIsImV4cCI6MjA3NjU2OTM0Mn0.5gfX3gevuD1Q7a9AhYB7i03Rp3e79s0HrrYowWy8Y38';
+
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 const OrderTrackingApp = () => {
-  const [orders, setOrders] = useState([
-    {
-      id: 'CMD001',
-      dateCommande: '2025-10-01',
-      client: 'Jean Dupont',
-      telephone: '+237 699 123 456',
-      produit: 'Dell Latitude 5520 - i7, 16GB RAM, 512GB SSD',
-      prixAchatYuan: 3500,
-      tauxChange: 85,
-      prixVenteCFA: 650000,
-      acompte: 455000,
-      solde: 195000,
-      montantPaye: 455000,
-      montantRestant: 195000,
-      dateAcompte: '2025-10-01',
-      dateSolde: null,
-      dateExpedition: '2025-10-03',
-      dateArriveePrevu: '2025-10-28',
-      dateArriveeEffective: null,
-      statut: 'En transit',
-      notes: 'Configuration standard'
-    },
-    {
-      id: 'CMD002',
-      dateCommande: '2025-09-15',
-      client: 'Marie Kouam',
-      telephone: '+237 677 987 654',
-      produit: 'HP EliteBook 840 G8 - i5, 8GB RAM, 256GB SSD',
-      prixAchatYuan: 2800,
-      tauxChange: 85,
-      prixVenteCFA: 520000,
-      acompte: 364000,
-      solde: 156000,
-      montantPaye: 520000,
-      montantRestant: 0,
-      dateAcompte: '2025-09-15',
-      dateSolde: '2025-10-12',
-      dateExpedition: '2025-09-18',
-      dateArriveePrevu: '2025-10-10',
-      dateArriveeEffective: '2025-10-11',
-      statut: 'Livré',
-      notes: 'Client satisfait'
-    }
-  ]);
-
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
   const [editingOrder, setEditingOrder] = useState(null);
@@ -66,6 +31,56 @@ const OrderTrackingApp = () => {
   });
 
   const statuts = ['Tous', 'Acompte en attente', 'Commandé', 'En transit', 'Arrivé', 'Livré'];
+
+  // Charger les commandes depuis Supabase
+  const fetchOrders = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .order('date_commande', { ascending: false });
+
+      if (error) throw error;
+
+      // Convertir les noms de colonnes snake_case en camelCase
+      const formattedOrders = data.map(order => ({
+        id: order.id,
+        dateCommande: order.date_commande,
+        client: order.client,
+        telephone: order.telephone,
+        produit: order.produit,
+        prixAchatYuan: order.prix_achat_yuan,
+        tauxChange: order.taux_change,
+        prixVenteCFA: order.prix_vente_cfa,
+        acompte: order.acompte,
+        solde: order.solde,
+        montantPaye: order.montant_paye,
+        montantRestant: order.montant_restant,
+        dateAcompte: order.date_acompte,
+        dateSolde: order.date_solde,
+        dateExpedition: order.date_expedition,
+        dateArriveePrevu: order.date_arrivee_prevu,
+        dateArriveeEffective: order.date_arrivee_effective,
+        statut: order.statut,
+        notes: order.notes
+      }));
+
+      setOrders(formattedOrders);
+    } catch (error) {
+      console.error('Erreur lors du chargement des commandes:', error);
+      setError('Erreur lors du chargement des commandes. Vérifiez que la table existe dans Supabase.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Charger les commandes au démarrage
+  useEffect(() => {
+    fetchOrders();
+  }, []);
 
   const getStatutColor = (statut) => {
     const colors = {
@@ -90,7 +105,7 @@ const OrderTrackingApp = () => {
     return Math.round(parseFloat(yuan || 0) * parseFloat(taux || 85));
   };
 
-  const handleAddOrder = () => {
+  const handleAddOrder = async () => {
     if (!newOrder.client || !newOrder.telephone || !newOrder.produit || !newOrder.prixVenteCFA) {
       alert('Veuillez remplir tous les champs obligatoires');
       return;
@@ -104,31 +119,59 @@ const OrderTrackingApp = () => {
     const arriveeDans28Jours = new Date();
     arriveeDans28Jours.setDate(arriveeDans28Jours.getDate() + 28);
 
+    // Générer un ID unique
+    const { data: existingOrders } = await supabase
+      .from('orders')
+      .select('id')
+      .order('id', { ascending: false })
+      .limit(1);
+
+    let nextNumber = 1;
+    if (existingOrders && existingOrders.length > 0) {
+      const lastId = existingOrders[0].id;
+      const lastNumber = parseInt(lastId.replace('CMD', ''));
+      nextNumber = lastNumber + 1;
+    }
+
     const order = {
-      id: `CMD${String(orders.length + 1).padStart(3, '0')}`,
-      dateCommande: today,
+      id: `CMD${String(nextNumber).padStart(3, '0')}`,
+      date_commande: today,
       client: newOrder.client,
       telephone: newOrder.telephone,
       produit: newOrder.produit,
-      prixAchatYuan: parseFloat(newOrder.prixAchatYuan) || 0,
-      tauxChange: parseFloat(newOrder.tauxChange) || 85,
-      prixVenteCFA: prixVenteCFA,
+      prix_achat_yuan: parseFloat(newOrder.prixAchatYuan) || 0,
+      taux_change: parseFloat(newOrder.tauxChange) || 85,
+      prix_vente_cfa: prixVenteCFA,
       acompte: acompte,
       solde: solde,
-      montantPaye: 0,
-      montantRestant: prixVenteCFA,
-      dateAcompte: null,
-      dateSolde: null,
-      dateExpedition: newOrder.dateExpedition || null,
-      dateArriveePrevu: arriveeDans28Jours.toISOString().split('T')[0],
-      dateArriveeEffective: null,
+      montant_paye: 0,
+      montant_restant: prixVenteCFA,
+      date_acompte: null,
+      date_solde: null,
+      date_expedition: newOrder.dateExpedition || null,
+      date_arrivee_prevu: arriveeDans28Jours.toISOString().split('T')[0],
+      date_arrivee_effective: null,
       statut: 'Acompte en attente',
       notes: newOrder.notes
     };
 
-    setOrders([order, ...orders]);
-    setNewOrder({ client: '', telephone: '', produit: '', prixAchatYuan: '', tauxChange: 85, prixVenteCFA: '', dateExpedition: '', notes: '' });
-    setShowAddForm(false);
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .insert([order]);
+
+      if (error) throw error;
+
+      // Recharger les commandes
+      await fetchOrders();
+      
+      setNewOrder({ client: '', telephone: '', produit: '', prixAchatYuan: '', tauxChange: 85, prixVenteCFA: '', dateExpedition: '', notes: '' });
+      setShowAddForm(false);
+      alert('Commande ajoutée avec succès !');
+    } catch (error) {
+      console.error('Erreur lors de l\'ajout:', error);
+      alert('Erreur lors de l\'ajout de la commande. Vérifiez la console pour plus de détails.');
+    }
   };
 
   const handleDeleteClick = (order) => {
@@ -136,10 +179,23 @@ const OrderTrackingApp = () => {
     setShowDeleteConfirm(true);
   };
 
-  const handleDeleteConfirm = () => {
-    setOrders(orders.filter(order => order.id !== orderToDelete.id));
-    setShowDeleteConfirm(false);
-    setOrderToDelete(null);
+  const handleDeleteConfirm = async () => {
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .delete()
+        .eq('id', orderToDelete.id);
+
+      if (error) throw error;
+
+      await fetchOrders();
+      setShowDeleteConfirm(false);
+      setOrderToDelete(null);
+      alert('Commande supprimée avec succès !');
+    } catch (error) {
+      console.error('Erreur lors de la suppression:', error);
+      alert('Erreur lors de la suppression de la commande.');
+    }
   };
 
   const handleEditClick = (order) => {
@@ -147,7 +203,7 @@ const OrderTrackingApp = () => {
     setShowEditForm(true);
   };
 
-  const handleEditOrder = () => {
+  const handleEditOrder = async () => {
     if (!editingOrder.client || !editingOrder.telephone || !editingOrder.produit || !editingOrder.prixVenteCFA) {
       alert('Veuillez remplir tous les champs obligatoires');
       return;
@@ -159,305 +215,359 @@ const OrderTrackingApp = () => {
     const montantPaye = parseFloat(editingOrder.montantPaye) || 0;
     const montantRestant = prixVenteCFA - montantPaye;
 
-    setOrders(orders.map(order => 
-      order.id === editingOrder.id 
-        ? { ...editingOrder, prixVenteCFA, acompte, solde, montantPaye, montantRestant }
-        : order
-    ));
-    
-    setShowEditForm(false);
-    setEditingOrder(null);
+    const updatedOrder = {
+      client: editingOrder.client,
+      telephone: editingOrder.telephone,
+      produit: editingOrder.produit,
+      prix_achat_yuan: parseFloat(editingOrder.prixAchatYuan) || 0,
+      taux_change: parseFloat(editingOrder.tauxChange) || 85,
+      prix_vente_cfa: prixVenteCFA,
+      acompte: acompte,
+      solde: solde,
+      montant_paye: montantPaye,
+      montant_restant: montantRestant,
+      date_expedition: editingOrder.dateExpedition || null,
+      date_arrivee_prevu: editingOrder.dateArriveePrevu,
+      statut: editingOrder.statut,
+      notes: editingOrder.notes
+    };
+
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update(updatedOrder)
+        .eq('id', editingOrder.id);
+
+      if (error) throw error;
+
+      await fetchOrders();
+      setShowEditForm(false);
+      setEditingOrder(null);
+      alert('Commande mise à jour avec succès !');
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour:', error);
+      alert('Erreur lors de la mise à jour de la commande.');
+    }
   };
 
-  const handleStatutChange = (orderId, newStatut) => {
-    setOrders(orders.map(order => {
-      if (order.id === orderId) {
-        const updates = { statut: newStatut };
-        const today = new Date().toISOString().split('T')[0];
-        
-        if (newStatut === 'Commandé' && !order.dateAcompte) {
-          updates.dateAcompte = today;
-          updates.montantPaye = order.acompte;
-          updates.montantRestant = order.solde;
-        }
-        
-        if (newStatut === 'Arrivé' && !order.dateArriveeEffective) {
-          updates.dateArriveeEffective = today;
-        }
-        
-        if (newStatut === 'Livré') {
-          if (!order.dateSolde) {
-            updates.dateSolde = today;
-          }
-          if (!order.dateArriveeEffective) {
-            updates.dateArriveeEffective = today;
-          }
-          updates.montantPaye = order.prixVenteCFA;
-          updates.montantRestant = 0;
-        }
-        
-        return { ...order, ...updates };
+  const handleStatutChange = async (orderId, newStatut) => {
+    const order = orders.find(o => o.id === orderId);
+    if (!order) return;
+
+    const updates = { statut: newStatut };
+    const today = new Date().toISOString().split('T')[0];
+    
+    if (newStatut === 'Commandé' && !order.dateAcompte) {
+      updates.date_acompte = today;
+      updates.montant_paye = order.acompte;
+      updates.montant_restant = order.solde;
+    }
+    
+    if (newStatut === 'En transit' && !order.dateExpedition) {
+      updates.date_expedition = today;
+    }
+    
+    if (newStatut === 'Arrivé' && !order.dateArriveeEffective) {
+      updates.date_arrivee_effective = today;
+    }
+    
+    if (newStatut === 'Livré') {
+      if (!order.dateArriveeEffective) {
+        updates.date_arrivee_effective = today;
       }
-      return order;
-    }));
+      if (!order.dateSolde && order.montantRestant > 0) {
+        updates.date_solde = today;
+        updates.montant_paye = order.prixVenteCFA;
+        updates.montant_restant = 0;
+      }
+    }
+
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update(updates)
+        .eq('id', orderId);
+
+      if (error) throw error;
+
+      await fetchOrders();
+    } catch (error) {
+      console.error('Erreur lors du changement de statut:', error);
+      alert('Erreur lors du changement de statut.');
+    }
   };
 
   const filteredOrders = orders.filter(order => {
     const matchesStatut = filterStatut === 'Tous' || order.statut === filterStatut;
     const matchesSearch = order.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          order.produit.toLowerCase().includes(searchTerm.toLowerCase());
+                         order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         order.produit.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesStatut && matchesSearch;
   });
 
   const stats = {
     total: orders.length,
-    enCours: orders.filter(o => !['Livré'].includes(o.statut)).length,
+    enCours: orders.filter(o => o.statut !== 'Livré').length,
     livrees: orders.filter(o => o.statut === 'Livré').length,
-    chiffreAffaires: orders.filter(o => o.statut === 'Livré').reduce((sum, o) => sum + o.prixVenteCFA, 0),
-    aEncaisser: orders.filter(o => o.statut !== 'Livré').reduce((sum, o) => sum + o.montantRestant, 0)
+    montantTotal: orders.reduce((sum, o) => sum + o.prixVenteCFA, 0),
+    montantPaye: orders.reduce((sum, o) => sum + o.montantPaye, 0),
+    montantRestant: orders.reduce((sum, o) => sum + o.montantRestant, 0)
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Chargement des commandes...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 md:p-6">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
-        <div className="mb-6">
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-1">Gestion des Commandes</h1>
-          <p className="text-gray-600 text-sm md:text-base">Suivi des commandes d'ordinateurs portables</p>
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold text-gray-900 mb-2 flex items-center gap-3">
+            <Package className="text-blue-600" size={40} />
+            Suivi des Commandes
+          </h1>
+          <p className="text-gray-600">Gérez vos commandes d'ordinateurs depuis la Chine</p>
+          
+          {error && (
+            <div className="mt-4 bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
+              <AlertCircle className="text-red-600 flex-shrink-0 mt-0.5" size={20} />
+              <div>
+                <p className="text-red-800 font-medium">Erreur de connexion à Supabase</p>
+                <p className="text-red-600 text-sm mt-1">{error}</p>
+                <p className="text-red-600 text-sm mt-2">Assurez-vous que la table "orders" existe dans votre base de données Supabase.</p>
+              </div>
+            </div>
+          )}
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4 mb-6">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
           <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-gray-600 mb-1">Total</p>
-                <p className="text-xl md:text-2xl font-bold text-gray-900">{stats.total}</p>
-              </div>
-              <Package className="text-blue-500" size={24} />
+            <div className="flex items-center gap-2 mb-2">
+              <Package className="text-blue-600" size={20} />
+              <p className="text-xs text-gray-600 font-medium">Total</p>
             </div>
-          </div>
-          
-          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-gray-600 mb-1">En Cours</p>
-                <p className="text-xl md:text-2xl font-bold text-orange-600">{stats.enCours}</p>
-              </div>
-              <Clock className="text-orange-500" size={24} />
-            </div>
+            <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
           </div>
           
           <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-gray-600 mb-1">Livrées</p>
-                <p className="text-xl md:text-2xl font-bold text-green-600">{stats.livrees}</p>
-              </div>
-              <CheckCircle className="text-green-500" size={24} />
+            <div className="flex items-center gap-2 mb-2">
+              <Clock className="text-purple-600" size={20} />
+              <p className="text-xs text-gray-600 font-medium">En cours</p>
             </div>
+            <p className="text-2xl font-bold text-purple-900">{stats.enCours}</p>
           </div>
           
-          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 col-span-2 md:col-span-1">
-            <div>
-              <p className="text-xs text-gray-600 mb-1">CA Encaissé</p>
-              <p className="text-base md:text-lg font-bold text-purple-600">{formatCFA(stats.chiffreAffaires)}</p>
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+            <div className="flex items-center gap-2 mb-2">
+              <CheckCircle className="text-green-600" size={20} />
+              <p className="text-xs text-gray-600 font-medium">Livrées</p>
             </div>
+            <p className="text-2xl font-bold text-green-900">{stats.livrees}</p>
           </div>
           
-          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 col-span-2 md:col-span-1">
-            <div>
-              <p className="text-xs text-gray-600 mb-1">À Encaisser</p>
-              <p className="text-base md:text-lg font-bold text-yellow-600">{formatCFA(stats.aEncaisser)}</p>
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+            <div className="flex items-center gap-2 mb-2">
+              <DollarSign className="text-blue-600" size={20} />
+              <p className="text-xs text-gray-600 font-medium">Total ventes</p>
             </div>
+            <p className="text-lg font-bold text-blue-900">{formatCFA(stats.montantTotal)}</p>
+          </div>
+          
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+            <div className="flex items-center gap-2 mb-2">
+              <CheckCircle className="text-green-600" size={20} />
+              <p className="text-xs text-gray-600 font-medium">Payé</p>
+            </div>
+            <p className="text-lg font-bold text-green-900">{formatCFA(stats.montantPaye)}</p>
+          </div>
+          
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+            <div className="flex items-center gap-2 mb-2">
+              <DollarSign className="text-orange-600" size={20} />
+              <p className="text-xs text-gray-600 font-medium">Restant</p>
+            </div>
+            <p className="text-lg font-bold text-orange-900">{formatCFA(stats.montantRestant)}</p>
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-6">
-          <div className="flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
-            <div className="flex flex-col md:flex-row gap-3 flex-1">
-              <div className="relative flex-1 max-w-md">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+        {/* Filters and Actions */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
                 <input
                   type="text"
-                  placeholder="Rechercher..."
-                  className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Rechercher par client, commande ou produit..."
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
-              
-              <div className="flex items-center gap-2">
-                <Filter size={18} className="text-gray-600" />
-                <select
-                  className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={filterStatut}
-                  onChange={(e) => setFilterStatut(e.target.value)}
-                >
-                  {statuts.map(statut => (
-                    <option key={statut} value={statut}>{statut}</option>
-                  ))}
-                </select>
-              </div>
             </div>
             
-            <button
-              onClick={() => setShowAddForm(!showAddForm)}
-              className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition shadow-sm"
-            >
-              <Plus size={18} />
-              Nouvelle Commande
-            </button>
+            <div className="flex gap-2">
+              <select
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={filterStatut}
+                onChange={(e) => setFilterStatut(e.target.value)}
+              >
+                {statuts.map(statut => (
+                  <option key={statut} value={statut}>{statut}</option>
+                ))}
+              </select>
+              
+              <button
+                onClick={() => setShowAddForm(true)}
+                className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition shadow-sm"
+              >
+                <Plus size={20} />
+                <span className="hidden md:inline">Nouvelle commande</span>
+              </button>
+            </div>
           </div>
         </div>
 
+        {/* Add Order Modal */}
         {showAddForm && (
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 mb-6">
-            <h2 className="text-xl font-bold mb-4">Nouvelle Commande</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Client *</label>
-                <input
-                  type="text"
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={newOrder.client}
-                  onChange={(e) => setNewOrder({...newOrder, client: e.target.value})}
-                />
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex justify-between items-center">
+                <h2 className="text-2xl font-bold text-gray-900">Nouvelle Commande</h2>
+                <button
+                  onClick={() => setShowAddForm(false)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition"
+                >
+                  <X size={24} />
+                </button>
               </div>
               
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Téléphone *</label>
-                <input
-                  type="tel"
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={newOrder.telephone}
-                  onChange={(e) => setNewOrder({...newOrder, telephone: e.target.value})}
-                />
+              <div className="p-6 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Client *</label>
+                    <input
+                      type="text"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={newOrder.client}
+                      onChange={(e) => setNewOrder({...newOrder, client: e.target.value})}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Téléphone *</label>
+                    <input
+                      type="tel"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={newOrder.telephone}
+                      onChange={(e) => setNewOrder({...newOrder, telephone: e.target.value})}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Produit *</label>
+                  <input
+                    type="text"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={newOrder.produit}
+                    onChange={(e) => setNewOrder({...newOrder, produit: e.target.value})}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Prix achat (¥)</label>
+                    <input
+                      type="number"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={newOrder.prixAchatYuan}
+                      onChange={(e) => setNewOrder({...newOrder, prixAchatYuan: e.target.value})}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Taux de change</label>
+                    <input
+                      type="number"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={newOrder.tauxChange}
+                      onChange={(e) => setNewOrder({...newOrder, tauxChange: e.target.value})}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Prix vente (FCFA) *</label>
+                    <input
+                      type="number"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={newOrder.prixVenteCFA}
+                      onChange={(e) => setNewOrder({...newOrder, prixVenteCFA: e.target.value})}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Date d'expédition</label>
+                  <input
+                    type="date"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={newOrder.dateExpedition}
+                    onChange={(e) => setNewOrder({...newOrder, dateExpedition: e.target.value})}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Notes</label>
+                  <textarea
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    rows="2"
+                    value={newOrder.notes}
+                    onChange={(e) => setNewOrder({...newOrder, notes: e.target.value})}
+                  />
+                </div>
+                
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleAddOrder}
+                    className="px-6 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                  >
+                    Ajouter
+                  </button>
+                  <button
+                    onClick={() => setShowAddForm(false)}
+                    className="px-6 py-2 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
+                  >
+                    Annuler
+                  </button>
+                </div>
               </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Prix d'achat (Yuan)</label>
-                <input
-                  type="number"
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={newOrder.prixAchatYuan}
-                  onChange={(e) => {
-                    const yuan = e.target.value;
-                    setNewOrder({
-                      ...newOrder, 
-                      prixAchatYuan: yuan,
-                      prixVenteCFA: calculateFromYuan(yuan, newOrder.tauxChange)
-                    });
-                  }}
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Taux de change (¥ → FCFA)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={newOrder.tauxChange}
-                  onChange={(e) => {
-                    const taux = e.target.value;
-                    setNewOrder({
-                      ...newOrder, 
-                      tauxChange: taux,
-                      prixVenteCFA: calculateFromYuan(newOrder.prixAchatYuan, taux)
-                    });
-                  }}
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Prix de vente (FCFA) *</label>
-                <input
-                  type="number"
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={newOrder.prixVenteCFA}
-                  onChange={(e) => setNewOrder({...newOrder, prixVenteCFA: e.target.value})}
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Date d'expédition</label>
-                <input
-                  type="date"
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={newOrder.dateExpedition}
-                  onChange={(e) => setNewOrder({...newOrder, dateExpedition: e.target.value})}
-                />
-              </div>
-              
-              <div className="md:col-span-3">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Produit *</label>
-                <input
-                  type="text"
-                  placeholder="Ex: Dell Latitude 5520 - i7, 16GB RAM, 512GB SSD"
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={newOrder.produit}
-                  onChange={(e) => setNewOrder({...newOrder, produit: e.target.value})}
-                />
-              </div>
-              
-              <div className="md:col-span-3">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-                <textarea
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  rows="2"
-                  value={newOrder.notes}
-                  onChange={(e) => setNewOrder({...newOrder, notes: e.target.value})}
-                />
-              </div>
-            </div>
-            
-            <div className="flex gap-3 mt-4">
-              <button
-                onClick={handleAddOrder}
-                className="px-6 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-              >
-                Créer la commande
-              </button>
-              <button
-                onClick={() => setShowAddForm(false)}
-                className="px-6 py-2 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
-              >
-                Annuler
-              </button>
             </div>
           </div>
         )}
 
+        {/* Delete Confirmation Modal */}
         {showDeleteConfirm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-xl">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="bg-red-100 p-2 rounded-full">
-                  <Trash2 className="text-red-600" size={24} />
-                </div>
-                <h3 className="text-xl font-bold text-gray-900">Confirmer la suppression</h3>
-              </div>
-              
-              <p className="text-gray-600 mb-2">
-                Êtes-vous sûr de vouloir supprimer cette commande ?
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">Confirmer la suppression</h3>
+              <p className="text-gray-600 mb-6">
+                Êtes-vous sûr de vouloir supprimer la commande <strong>{orderToDelete?.id}</strong> ?
+                Cette action est irréversible.
               </p>
-              
-              {orderToDelete && (
-                <div className="bg-gray-50 p-3 rounded-lg mb-4">
-                  <p className="text-sm"><span className="font-medium">ID:</span> {orderToDelete.id}</p>
-                  <p className="text-sm"><span className="font-medium">Client:</span> {orderToDelete.client}</p>
-                  <p className="text-sm"><span className="font-medium">Produit:</span> {orderToDelete.produit}</p>
-                </div>
-              )}
-              
-              <p className="text-red-600 text-sm mb-4">
-                ⚠️ Cette action est irréversible !
-              </p>
-              
               <div className="flex gap-3">
                 <button
                   onClick={handleDeleteConfirm}
-                  className="flex-1 px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
+                  className="flex-1 px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
                 >
                   Supprimer
                 </button>
@@ -466,7 +576,7 @@ const OrderTrackingApp = () => {
                     setShowDeleteConfirm(false);
                     setOrderToDelete(null);
                   }}
-                  className="flex-1 px-4 py-2 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
+                  className="flex-1 px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
                 >
                   Annuler
                 </button>
@@ -475,54 +585,92 @@ const OrderTrackingApp = () => {
           </div>
         )}
 
+        {/* Edit Order Modal */}
         {showEditForm && editingOrder && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-            <div className="bg-white rounded-xl p-6 max-w-4xl w-full my-8 shadow-xl">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold">Modifier la commande {editingOrder.id}</h2>
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex justify-between items-center">
+                <h2 className="text-2xl font-bold text-gray-900">Modifier la Commande</h2>
                 <button
                   onClick={() => {
                     setShowEditForm(false);
                     setEditingOrder(null);
                   }}
-                  className="text-gray-500 hover:text-gray-700"
+                  className="p-2 hover:bg-gray-100 rounded-lg transition"
                 >
                   <X size={24} />
                 </button>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div className="md:col-span-3">
-                  <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                    <Package size={18} />
-                    Informations Client
-                  </h3>
+              <div className="p-6 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Client *</label>
+                    <input
+                      type="text"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={editingOrder.client}
+                      onChange={(e) => setEditingOrder({...editingOrder, client: e.target.value})}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Téléphone *</label>
+                    <input
+                      type="tel"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={editingOrder.telephone}
+                      onChange={(e) => setEditingOrder({...editingOrder, telephone: e.target.value})}
+                    />
+                  </div>
                 </div>
-                
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Client *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Produit *</label>
                   <input
                     type="text"
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    value={editingOrder.client}
-                    onChange={(e) => setEditingOrder({...editingOrder, client: e.target.value})}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={editingOrder.produit}
+                    onChange={(e) => setEditingOrder({...editingOrder, produit: e.target.value})}
                   />
                 </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Téléphone *</label>
-                  <input
-                    type="tel"
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    value={editingOrder.telephone}
-                    onChange={(e) => setEditingOrder({...editingOrder, telephone: e.target.value})}
-                  />
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Prix achat (¥)</label>
+                    <input
+                      type="number"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={editingOrder.prixAchatYuan}
+                      onChange={(e) => setEditingOrder({...editingOrder, prixAchatYuan: e.target.value})}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Taux de change</label>
+                    <input
+                      type="number"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={editingOrder.tauxChange}
+                      onChange={(e) => setEditingOrder({...editingOrder, tauxChange: e.target.value})}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Prix vente (FCFA) *</label>
+                    <input
+                      type="number"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={editingOrder.prixVenteCFA}
+                      onChange={(e) => setEditingOrder({...editingOrder, prixVenteCFA: e.target.value})}
+                    />
+                  </div>
                 </div>
-                
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Statut</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Statut</label>
                   <select
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     value={editingOrder.statut}
                     onChange={(e) => setEditingOrder({...editingOrder, statut: e.target.value})}
                   >
@@ -531,167 +679,60 @@ const OrderTrackingApp = () => {
                     ))}
                   </select>
                 </div>
-              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div className="md:col-span-3">
-                  <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                    <TrendingUp size={18} />
-                    Informations Produit & Prix
-                  </h3>
-                </div>
-                
-                <div className="md:col-span-3">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Produit *</label>
-                  <input
-                    type="text"
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    value={editingOrder.produit}
-                    onChange={(e) => setEditingOrder({...editingOrder, produit: e.target.value})}
-                  />
-                </div>
-                
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Prix d'achat (Yuan)</label>
-                  <input
-                    type="number"
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    value={editingOrder.prixAchatYuan}
-                    onChange={(e) => setEditingOrder({...editingOrder, prixAchatYuan: e.target.value})}
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Taux de change</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    value={editingOrder.tauxChange}
-                    onChange={(e) => setEditingOrder({...editingOrder, tauxChange: e.target.value})}
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Prix de vente (FCFA) *</label>
-                  <input
-                    type="number"
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    value={editingOrder.prixVenteCFA}
-                    onChange={(e) => setEditingOrder({...editingOrder, prixVenteCFA: e.target.value})}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div className="md:col-span-3">
-                  <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                    <DollarSign size={18} />
-                    Informations de Paiement
-                  </h3>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Montant payé (FCFA)</label>
-                  <input
-                    type="number"
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    value={editingOrder.montantPaye}
-                    onChange={(e) => setEditingOrder({...editingOrder, montantPaye: e.target.value})}
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Date paiement avance</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Date d'expédition</label>
                   <input
                     type="date"
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    value={editingOrder.dateAcompte || ''}
-                    onChange={(e) => setEditingOrder({...editingOrder, dateAcompte: e.target.value})}
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Date paiement solde</label>
-                  <input
-                    type="date"
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    value={editingOrder.dateSolde || ''}
-                    onChange={(e) => setEditingOrder({...editingOrder, dateSolde: e.target.value})}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div className="md:col-span-3">
-                  <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                    <Calendar size={18} />
-                    Dates de Livraison
-                  </h3>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Date d'expédition</label>
-                  <input
-                    type="date"
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     value={editingOrder.dateExpedition || ''}
                     onChange={(e) => setEditingOrder({...editingOrder, dateExpedition: e.target.value})}
                   />
                 </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Date d'arrivée prévue</label>
-                  <input
-                    type="date"
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    value={editingOrder.dateArriveePrevu}
-                    onChange={(e) => setEditingOrder({...editingOrder, dateArriveePrevu: e.target.value})}
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Date d'arrivée effective</label>
-                  <input
-                    type="date"
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    value={editingOrder.dateArriveeEffective || ''}
-                    onChange={(e) => setEditingOrder({...editingOrder, dateArriveeEffective: e.target.value})}
-                  />
-                </div>
-              </div>
 
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-                <textarea
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  rows="2"
-                  value={editingOrder.notes}
-                  onChange={(e) => setEditingOrder({...editingOrder, notes: e.target.value})}
-                />
-              </div>
-              
-              <div className="flex gap-3">
-                <button
-                  onClick={handleEditOrder}
-                  className="px-6 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-                >
-                  Enregistrer
-                </button>
-                <button
-                  onClick={() => {
-                    setShowEditForm(false);
-                    setEditingOrder(null);
-                  }}
-                  className="px-6 py-2 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
-                >
-                  Annuler
-                </button>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Montant payé (FCFA)</label>
+                  <input
+                    type="number"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={editingOrder.montantPaye}
+                    onChange={(e) => setEditingOrder({...editingOrder, montantPaye: e.target.value})}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Notes</label>
+                  <textarea
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    rows="2"
+                    value={editingOrder.notes}
+                    onChange={(e) => setEditingOrder({...editingOrder, notes: e.target.value})}
+                  />
+                </div>
+                
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleEditOrder}
+                    className="px-6 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                  >
+                    Enregistrer
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowEditForm(false);
+                      setEditingOrder(null);
+                    }}
+                    className="px-6 py-2 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
+                  >
+                    Annuler
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         )}
 
+        {/* Orders List */}
         <div className="space-y-4">
           {filteredOrders.map(order => (
             <div key={order.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition">
