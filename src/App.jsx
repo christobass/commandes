@@ -1,15 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Filter, DollarSign, Package, Clock, CheckCircle, Trash2, Edit, X, TrendingUp, Calendar, AlertCircle, LogOut, Users, Eye, EyeOff, Shield, User } from 'lucide-react';
+import { Plus, Search, Filter, DollarSign, Package, Clock, CheckCircle, Trash2, Edit, X, Calendar, User, Eye, EyeOff, Users } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 
 // Configuration Supabase
 const supabaseUrl = 'https://pzailvvjosssdluuabaj.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB6YWlsdnZqb3Nzc2RsdXVhYmFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA5OTMzNDIsImV4cCI6MjA3NjU2OTM0Mn0.5gfX3gevuD1Q7a9AhYB7i03Rp3e79s0HrrYowWy8Y38';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB6YWlsdnZqb3Nzc2RsdXVhYmFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mjk4ODY0OTQsImV4cCI6MjA0NTQ2MjQ5NH0.H9JDVBa7bBTUxCnXLc7w5EWqp7VdQo9hTOI4S1OVH6g';
+
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// ============================================
-// COMPOSANT: Page de Connexion
-// ============================================
+// Composant Page de Connexion
 const LoginPage = ({ onLogin }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -19,377 +18,124 @@ const LoginPage = ({ onLogin }) => {
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setError('');
     setLoading(true);
+    setError('');
 
     try {
-      // Appeler la fonction PostgreSQL
-      const { data, error: rpcError } = await supabase
-        .rpc('verify_user_password', {
-          p_username: username,
-          p_password: password
-        });
+      const { data, error } = await supabase.rpc('verify_user_password', {
+        p_username: username,
+        p_password: password
+      });
 
-      if (rpcError) throw rpcError;
+      if (error) throw error;
 
       if (!data || data.length === 0 || !data[0].is_valid) {
-        setError('Nom d\'utilisateur ou mot de passe incorrect');
+        setError('Identifiants incorrects');
         setLoading(false);
         return;
       }
 
-      const user = data[0];
       const userData = {
-        id: user.user_id,
-        username: user.username,
-        role: user.role,
-        full_name: user.full_name,
-        email: user.email
+        id: data[0].user_id,
+        username: data[0].username,
+        role: data[0].role,
+        full_name: data[0].full_name,
+        email: data[0].email
       };
 
       localStorage.setItem('currentUser', JSON.stringify(userData));
       onLogin(userData);
     } catch (error) {
-      console.error('Erreur:', error);
       setError('Erreur de connexion: ' + error.message);
-    } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-8 text-white text-center">
-          <Package size={48} className="mx-auto mb-4" />
-          <h1 className="text-3xl font-bold mb-2">Suivi des Commandes</h1>
-          <p className="text-blue-100">Système de gestion</p>
-        </div>
-
-        <form onSubmit={handleLogin} className="p-8 space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Nom d'utilisateur</label>
-            <div className="relative">
-              <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Entrez votre nom d'utilisateur"
-                required
-              />
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        <div className="bg-white rounded-2xl shadow-2xl p-8 border border-gray-100">
+          <div className="text-center mb-8">
+            <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+              <Package className="text-white" size={32} />
             </div>
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-2">
+              Gestion Commandes
+            </h1>
+            <p className="text-gray-600">Connectez-vous pour continuer</p>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Mot de passe</label>
-            <div className="relative">
-              <Shield className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Entrez votre mot de passe"
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-              </button>
+          <form onSubmit={handleLogin} className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Nom d'utilisateur
+              </label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                <input
+                  type="text"
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                  placeholder="Entrez votre nom d'utilisateur"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required
+                  disabled={loading}
+                />
+              </div>
             </div>
-          </div>
 
-          {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2">
-              <AlertCircle className="text-red-600 flex-shrink-0 mt-0.5" size={20} />
-              <p className="text-red-800 text-sm">{error}</p>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Mot de passe
+              </label>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  className="w-full pl-4 pr-12 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                  placeholder="Entrez votre mot de passe"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  disabled={loading}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  disabled={loading}
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
             </div>
-          )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 rounded-lg font-medium hover:from-blue-700 hover:to-indigo-700 transition disabled:opacity-50"
-          >
-            {loading ? 'Connexion...' : 'Se connecter'}
-          </button>
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                {error}
+              </div>
+            )}
 
-          
-        </form>
-      </div>
-    </div>
-  );
-};
-
-// ============================================
-// COMPOSANT: Gestion des Utilisateurs
-// ============================================
-const UserManagement = ({ currentUser, onClose }) => {
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [showAddUser, setShowAddUser] = useState(false);
-  const [newUser, setNewUser] = useState({
-    username: '',
-    password: '',
-    role: 'user',
-    full_name: '',
-    email: ''
-  });
-
-  const fetchUsers = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('app_users')
-        .select('id, username, role, full_name, email, is_active, created_at')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setUsers(data || []);
-    } catch (error) {
-      console.error('Erreur:', error);
-      alert('Erreur lors du chargement des utilisateurs');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
-  const handleAddUser = async () => {
-    if (!newUser.username || !newUser.password) {
-      alert('Nom d\'utilisateur et mot de passe requis');
-      return;
-    }
-
-    try {
-      const { data, error } = await supabase
-        .rpc('create_user_with_password', {
-          p_username: newUser.username,
-          p_password: newUser.password,
-          p_role: newUser.role,
-          p_full_name: newUser.full_name || null,
-          p_email: newUser.email || null
-        });
-
-      if (error) throw error;
-
-      alert('Utilisateur créé avec succès !');
-      setNewUser({ username: '', password: '', role: 'user', full_name: '', email: '' });
-      setShowAddUser(false);
-      fetchUsers();
-    } catch (error) {
-      console.error('Erreur:', error);
-      alert('Erreur: ' + error.message);
-    }
-  };
-
-  const handleToggleActive = async (userId, currentStatus) => {
-    try {
-      const { error } = await supabase
-        .from('app_users')
-        .update({ is_active: !currentStatus })
-        .eq('id', userId);
-
-      if (error) throw error;
-      fetchUsers();
-    } catch (error) {
-      console.error('Erreur:', error);
-      alert('Erreur lors de la mise à jour');
-    }
-  };
-
-  const handleDeleteUser = async (userId, username) => {
-    if (userId === currentUser.id) {
-      alert('Vous ne pouvez pas supprimer votre propre compte !');
-      return;
-    }
-
-    if (!confirm(`Êtes-vous sûr de vouloir supprimer "${username}" ?`)) {
-      return;
-    }
-
-    try {
-      const { error } = await supabase
-        .from('app_users')
-        .delete()
-        .eq('id', userId);
-
-      if (error) throw error;
-      alert('Utilisateur supprimé');
-      fetchUsers();
-    } catch (error) {
-      console.error('Erreur:', error);
-      alert('Erreur lors de la suppression');
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
-        <div className="bg-gradient-to-r from-purple-600 to-indigo-600 p-6 flex justify-between items-center">
-          <div className="flex items-center gap-3 text-white">
-            <Users size={28} />
-            <h2 className="text-2xl font-bold">Gestion des Utilisateurs</h2>
-          </div>
-          <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-lg transition text-white">
-            <X size={24} />
-          </button>
-        </div>
-
-        <div className="p-6">
-          <div className="flex justify-between items-center mb-6">
-            <p className="text-gray-600">{users.length} utilisateur(s)</p>
             <button
-              onClick={() => setShowAddUser(!showAddUser)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+              type="submit"
+              className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-indigo-700 transition shadow-lg hover:shadow-xl disabled:opacity-50"
+              disabled={loading}
             >
-              <Plus size={20} />
-              Nouvel utilisateur
+              {loading ? 'Connexion...' : 'Se connecter'}
             </button>
-          </div>
+          </form>
+        </div>
 
-          {showAddUser && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-              <h3 className="font-bold text-gray-900 mb-4">Créer un nouvel utilisateur</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Nom d'utilisateur *</label>
-                  <input
-                    type="text"
-                    value={newUser.username}
-                    onChange={(e) => setNewUser({...newUser, username: e.target.value})}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Mot de passe *</label>
-                  <input
-                    type="password"
-                    value={newUser.password}
-                    onChange={(e) => setNewUser({...newUser, password: e.target.value})}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Nom complet</label>
-                  <input
-                    type="text"
-                    value={newUser.full_name}
-                    onChange={(e) => setNewUser({...newUser, full_name: e.target.value})}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                  <input
-                    type="email"
-                    value={newUser.email}
-                    onChange={(e) => setNewUser({...newUser, email: e.target.value})}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Rôle *</label>
-                  <select
-                    value={newUser.role}
-                    onChange={(e) => setNewUser({...newUser, role: e.target.value})}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="user">Utilisateur</option>
-                    <option value="admin">Administrateur</option>
-                  </select>
-                </div>
-              </div>
-              <div className="flex gap-3 mt-4">
-                <button
-                  onClick={handleAddUser}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-                >
-                  Créer
-                </button>
-                <button
-                  onClick={() => setShowAddUser(false)}
-                  className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
-                >
-                  Annuler
-                </button>
-              </div>
-            </div>
-          )}
-
-          <div className="overflow-x-auto max-h-96 overflow-y-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 sticky top-0">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Utilisateur</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rôle</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {users.map(user => (
-                  <tr key={user.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3">
-                      <div>
-                        <p className="font-medium text-gray-900">{user.username}</p>
-                        {user.full_name && <p className="text-sm text-gray-500">{user.full_name}</p>}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'}`}>
-                        {user.role === 'admin' ? '👨‍💼 Admin' : '👤 User'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{user.email || '-'}</td>
-                    <td className="px-4 py-3">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                        {user.is_active ? 'Actif' : 'Inactif'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleToggleActive(user.id, user.is_active)}
-                          className="text-xs px-3 py-1 bg-yellow-100 text-yellow-800 rounded hover:bg-yellow-200 transition"
-                        >
-                          {user.is_active ? 'Désactiver' : 'Activer'}
-                        </button>
-                        {user.id !== currentUser.id && (
-                          <button
-                            onClick={() => handleDeleteUser(user.id, user.username)}
-                            className="text-xs px-3 py-1 bg-red-100 text-red-800 rounded hover:bg-red-200 transition"
-                          >
-                            Supprimer
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        <div className="text-center mt-6 text-sm text-gray-600">
+          <p>Compte de test: christian / bassole_9696</p>
         </div>
       </div>
     </div>
   );
 };
 
-// ============================================
-// COMPOSANT PRINCIPAL: Application
-// ============================================
+// Composant Principal
 const OrderTrackingApp = () => {
   const [currentUser, setCurrentUser] = useState(null);
-  const [showUserManagement, setShowUserManagement] = useState(false);
   const [orders, setOrders] = useState([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
@@ -398,6 +144,7 @@ const OrderTrackingApp = () => {
   const [orderToDelete, setOrderToDelete] = useState(null);
   const [filterStatut, setFilterStatut] = useState('Tous');
   const [searchTerm, setSearchTerm] = useState('');
+  
   const [newOrder, setNewOrder] = useState({
     client: '',
     telephone: '',
@@ -405,13 +152,15 @@ const OrderTrackingApp = () => {
     prixAchatYuan: '',
     tauxChange: 85,
     prixVenteCFA: '',
+    acompte: '',
     dateExpedition: '',
+    dateArriveePrevu: '',
     notes: ''
   });
 
   const statuts = ['Tous', 'Acompte en attente', 'Commandé', 'En transit', 'Arrivé', 'Livré'];
 
-  // Vérifier si l'utilisateur est déjà connecté
+  // Vérifier si l'utilisateur est connecté au chargement
   useEffect(() => {
     const savedUser = localStorage.getItem('currentUser');
     if (savedUser) {
@@ -434,7 +183,7 @@ const OrderTrackingApp = () => {
   const fetchOrders = async () => {
     try {
       const { data, error } = await supabase
-        .from('commandes')
+        .from('orders')
         .select('*')
         .order('date_commande', { ascending: false });
 
@@ -443,11 +192,6 @@ const OrderTrackingApp = () => {
     } catch (error) {
       console.error('Erreur chargement commandes:', error);
     }
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('currentUser');
-    setCurrentUser(null);
   };
 
   const getStatutColor = (statut) => {
@@ -462,11 +206,11 @@ const OrderTrackingApp = () => {
   };
 
   const formatCFA = (montant) => {
-    return new Intl.NumberFormat('fr-FR').format(montant) + ' FCFA';
+    return new Intl.NumberFormat('fr-FR').format(montant || 0) + ' FCFA';
   };
 
   const formatYuan = (montant) => {
-    return new Intl.NumberFormat('fr-FR').format(montant) + ' ¥';
+    return new Intl.NumberFormat('fr-FR').format(montant || 0) + ' ¥';
   };
 
   const calculateFromYuan = (yuan, taux) => {
@@ -480,16 +224,31 @@ const OrderTrackingApp = () => {
     }
 
     const prixVenteCFA = parseFloat(newOrder.prixVenteCFA);
-    const acompte = Math.round(prixVenteCFA * 0.7);
+    const prixAchatYuan = parseFloat(newOrder.prixAchatYuan) || 0;
+    const tauxChange = parseFloat(newOrder.tauxChange) || 85;
+    const acompte = newOrder.acompte ? parseFloat(newOrder.acompte) : Math.round(prixVenteCFA * 0.7);
     const solde = prixVenteCFA - acompte;
+    
+    const today = new Date().toISOString().split('T')[0];
+    
+    let dateArriveePrevu = newOrder.dateArriveePrevu;
+    if (!dateArriveePrevu && newOrder.dateExpedition) {
+      const expeditionDate = new Date(newOrder.dateExpedition);
+      expeditionDate.setDate(expeditionDate.getDate() + 25);
+      dateArriveePrevu = expeditionDate.toISOString().split('T')[0];
+    } else if (!dateArriveePrevu) {
+      const arriveeDans28Jours = new Date();
+      arriveeDans28Jours.setDate(arriveeDans28Jours.getDate() + 28);
+      dateArriveePrevu = arriveeDans28Jours.toISOString().split('T')[0];
+    }
 
     const orderData = {
-      date_commande: new Date().toISOString().split('T')[0],
+      date_commande: today,
       client: newOrder.client,
       telephone: newOrder.telephone,
       produit: newOrder.produit,
-      prix_achat_yuan: parseFloat(newOrder.prixAchatYuan) || 0,
-      taux_change: parseFloat(newOrder.tauxChange),
+      prix_achat_yuan: prixAchatYuan,
+      taux_change: tauxChange,
       prix_vente_cfa: prixVenteCFA,
       acompte: acompte,
       solde: solde,
@@ -498,76 +257,138 @@ const OrderTrackingApp = () => {
       date_acompte: null,
       date_solde: null,
       date_expedition: newOrder.dateExpedition || null,
-      date_arrivee_prevu: null,
+      date_arrivee_prevu: dateArriveePrevu,
       date_arrivee_effective: null,
       statut: 'Acompte en attente',
-      notes: newOrder.notes || ''
+      notes: newOrder.notes || null
     };
 
     try {
-      const { error } = await supabase.from('commandes').insert([orderData]);
+      const { error } = await supabase
+        .from('orders')
+        .insert([orderData]);
+
       if (error) throw error;
 
-      setNewOrder({ client: '', telephone: '', produit: '', prixAchatYuan: '', tauxChange: 85, prixVenteCFA: '', dateExpedition: '', notes: '' });
-      setShowAddForm(false);
+      alert('Commande ajoutée avec succès!');
       fetchOrders();
+      setNewOrder({
+        client: '',
+        telephone: '',
+        produit: '',
+        prixAchatYuan: '',
+        tauxChange: 85,
+        prixVenteCFA: '',
+        acompte: '',
+        dateExpedition: '',
+        dateArriveePrevu: '',
+        notes: ''
+      });
+      setShowAddForm(false);
     } catch (error) {
       console.error('Erreur ajout commande:', error);
       alert('Erreur lors de l\'ajout de la commande');
     }
   };
 
-  const handleEditOrder = (order) => {
-    setEditingOrder({...order});
-    setShowEditForm(true);
-  };
-
-  const handleUpdateOrder = async () => {
-    try {
-      const { error } = await supabase
-        .from('commandes')
-        .update(editingOrder)
-        .eq('id', editingOrder.id);
-
-      if (error) throw error;
-
-      setShowEditForm(false);
-      setEditingOrder(null);
-      fetchOrders();
-    } catch (error) {
-      console.error('Erreur mise à jour:', error);
-      alert('Erreur lors de la mise à jour');
-    }
-  };
-
-  const confirmDelete = (order) => {
+  const handleDeleteClick = (order) => {
     setOrderToDelete(order);
     setShowDeleteConfirm(true);
   };
 
-  const handleDeleteOrder = async () => {
+  const handleDeleteConfirm = async () => {
     try {
       const { error } = await supabase
-        .from('commandes')
+        .from('orders')
         .delete()
         .eq('id', orderToDelete.id);
 
       if (error) throw error;
 
+      fetchOrders();
       setShowDeleteConfirm(false);
       setOrderToDelete(null);
-      fetchOrders();
     } catch (error) {
       console.error('Erreur suppression:', error);
       alert('Erreur lors de la suppression');
     }
   };
 
-  const handleStatutChange = async (orderId, newStatut) => {
+  const handleEditClick = (order) => {
+    setEditingOrder({...order});
+    setShowEditForm(true);
+  };
+
+  const handleEditOrder = async () => {
+    if (!editingOrder.client || !editingOrder.telephone || !editingOrder.produit || !editingOrder.prix_vente_cfa) {
+      alert('Veuillez remplir tous les champs obligatoires');
+      return;
+    }
+
+    const prixVenteCFA = parseFloat(editingOrder.prix_vente_cfa);
+    const acompte = parseFloat(editingOrder.acompte) || Math.round(prixVenteCFA * 0.7);
+    const solde = prixVenteCFA - acompte;
+    const montantPaye = parseFloat(editingOrder.montant_paye) || 0;
+    const montantRestant = prixVenteCFA - montantPaye;
+
+    const updateData = {
+      ...editingOrder,
+      prix_vente_cfa: prixVenteCFA,
+      acompte: acompte,
+      solde: solde,
+      montant_paye: montantPaye,
+      montant_restant: montantRestant
+    };
+
     try {
       const { error } = await supabase
-        .from('commandes')
-        .update({ statut: newStatut })
+        .from('orders')
+        .update(updateData)
+        .eq('id', editingOrder.id);
+
+      if (error) throw error;
+
+      fetchOrders();
+      setShowEditForm(false);
+      setEditingOrder(null);
+    } catch (error) {
+      console.error('Erreur modification:', error);
+      alert('Erreur lors de la modification');
+    }
+  };
+
+  const handleStatutChange = async (orderId, newStatut) => {
+    const order = orders.find(o => o.id === orderId);
+    if (!order) return;
+
+    const updates = { statut: newStatut };
+    const today = new Date().toISOString().split('T')[0];
+
+    if (newStatut === 'Commandé' && !order.date_acompte) {
+      updates.date_acompte = today;
+      updates.montant_paye = order.acompte;
+      updates.montant_restant = order.solde;
+    }
+
+    if (newStatut === 'Arrivé' && !order.date_arrivee_effective) {
+      updates.date_arrivee_effective = today;
+    }
+
+    if (newStatut === 'Livré') {
+      if (!order.date_solde) {
+        updates.date_solde = today;
+      }
+      if (!order.date_arrivee_effective) {
+        updates.date_arrivee_effective = today;
+      }
+      updates.montant_paye = order.prix_vente_cfa;
+      updates.montant_restant = 0;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update(updates)
         .eq('id', orderId);
 
       if (error) throw error;
@@ -578,11 +399,16 @@ const OrderTrackingApp = () => {
     }
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('currentUser');
+    setCurrentUser(null);
+  };
+
   const filteredOrders = orders.filter(order => {
     const matchesStatut = filterStatut === 'Tous' || order.statut === filterStatut;
     const matchesSearch = order.client?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         order.produit?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         order.telephone?.includes(searchTerm);
+                          order.produit?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          order.telephone?.includes(searchTerm);
     return matchesStatut && matchesSearch;
   });
 
@@ -590,485 +416,259 @@ const OrderTrackingApp = () => {
     const total = filteredOrders.reduce((sum, order) => sum + (order.prix_vente_cfa || 0), 0);
     const paye = filteredOrders.reduce((sum, order) => sum + (order.montant_paye || 0), 0);
     const restant = filteredOrders.reduce((sum, order) => sum + (order.montant_restant || 0), 0);
-    return { total, paye, restant, count: filteredOrders.length };
+    
+    return {
+      total: filteredOrders.length,
+      enCours: filteredOrders.filter(o => !['Livré'].includes(o.statut)).length,
+      livrees: filteredOrders.filter(o => o.statut === 'Livré').length,
+      chiffreAffaires: paye,
+      aEncaisser: restant
+    };
   };
 
   const stats = calculateStats();
 
-  // Si pas connecté, afficher la page de connexion
+  // Afficher la page de connexion si non connecté
   if (!currentUser) {
     return <LoginPage onLogin={setCurrentUser} />;
   }
 
-  const isAdmin = currentUser.role === 'admin';
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-4 md:p-8">
-      {/* Header */}
-      <div className="max-w-7xl mx-auto mb-8">
-        <div className="bg-white rounded-2xl shadow-xl p-6 md:p-8">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-3 rounded-xl">
-                <Package className="text-white" size={32} />
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">Suivi des Commandes</h1>
-                <p className="text-gray-600 mt-1">Bienvenue, {currentUser.full_name || currentUser.username}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              {isAdmin && (
-                <button
-                  onClick={() => setShowUserManagement(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
-                >
-                  <Users size={20} />
-                  <span className="hidden md:inline">Utilisateurs</span>
-                </button>
-              )}
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
-              >
-                <LogOut size={20} />
-                <span className="hidden md:inline">Déconnexion</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Statistiques */}
-      <div className="max-w-7xl mx-auto mb-8">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-blue-500">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 text-sm font-medium">Total Commandes</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">{stats.count}</p>
-              </div>
-              <Package className="text-blue-500" size={40} />
-            </div>
-          </div>
-          <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-green-500">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 text-sm font-medium">Chiffre d'Affaires</p>
-                <p className="text-xl font-bold text-gray-900 mt-1">{formatCFA(stats.total)}</p>
-              </div>
-              <TrendingUp className="text-green-500" size={40} />
-            </div>
-          </div>
-          <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-purple-500">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 text-sm font-medium">Montant Payé</p>
-                <p className="text-xl font-bold text-gray-900 mt-1">{formatCFA(stats.paye)}</p>
-              </div>
-              <CheckCircle className="text-purple-500" size={40} />
-            </div>
-          </div>
-          <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-orange-500">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 text-sm font-medium">Reste à Payer</p>
-                <p className="text-xl font-bold text-gray-900 mt-1">{formatCFA(stats.restant)}</p>
-              </div>
-              <DollarSign className="text-orange-500" size={40} />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Filtres et actions */}
-      <div className="max-w-7xl mx-auto mb-6">
-        <div className="bg-white rounded-xl shadow-lg p-6">
-          <div className="flex flex-col md:flex-row gap-4 md:items-center md:justify-between">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-              <input
-                type="text"
-                placeholder="Rechercher par client, produit ou téléphone..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div className="flex gap-3">
-              <select
-                value={filterStatut}
-                onChange={(e) => setFilterStatut(e.target.value)}
-                className="px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-              >
-                {statuts.map(statut => (
-                  <option key={statut} value={statut}>{statut}</option>
-                ))}
-              </select>
-              {isAdmin && (
-                <button
-                  onClick={() => setShowAddForm(true)}
-                  className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition shadow-lg"
-                >
-                  <Plus size={20} />
-                  Nouvelle Commande
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Liste des commandes */}
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
-        <div className="space-y-4">
-          {filteredOrders.map((order) => (
-            <div key={order.id} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition">
-              <div className="p-6">
-                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-3">
-                      <h3 className="text-xl font-bold text-gray-900">{order.client}</h3>
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getStatutColor(order.statut)}`}>
-                        {order.statut}
-                      </span>
-                    </div>
-                    <p className="text-gray-700 font-medium mb-2">{order.produit}</p>
-                    <div className="flex flex-wrap gap-4 text-sm text-gray-600">
-                      <span className="flex items-center gap-1">
-                        <Calendar size={16} />
-                        {new Date(order.date_commande).toLocaleDateString('fr-FR')}
-                      </span>
-                      <span>{order.telephone}</span>
-                      {order.date_expedition && (
-                        <span className="flex items-center gap-1">
-                          <Clock size={16} />
-                          Expédition: {new Date(order.date_expedition).toLocaleDateString('fr-FR')}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="lg:text-right">
-                    <div className="space-y-1">
-                      <p className="text-2xl font-bold text-gray-900">{formatCFA(order.prix_vente_cfa)}</p>
-                      <p className="text-sm text-gray-600">Payé: {formatCFA(order.montant_paye)}</p>
-                      {order.montant_restant > 0 && (
-                        <p className="text-sm font-semibold text-orange-600">
-                          Reste: {formatCFA(order.montant_restant)}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {isAdmin && (
-                  <div className="mt-4 pt-4 border-t border-gray-200 flex flex-wrap gap-2">
-                    <select
-                      value={order.statut}
-                      onChange={(e) => handleStatutChange(order.id, e.target.value)}
-                      className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      {statuts.filter(s => s !== 'Tous').map(statut => (
-                        <option key={statut} value={statut}>{statut}</option>
-                      ))}
-                    </select>
-                    <button
-                      onClick={() => handleEditOrder(order)}
-                      className="flex items-center gap-1 px-3 py-1.5 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition"
-                    >
-                      <Edit size={16} />
-                      Modifier
-                    </button>
-                    <button
-                      onClick={() => confirmDelete(order)}
-                      className="flex items-center gap-1 px-3 py-1.5 text-sm bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition"
-                    >
-                      <Trash2 size={16} />
-                      Supprimer
-                    </button>
-                  </div>
-                )}
-              </div>
+        {/* Header */}
+        <div className="mb-6 flex items-center justify-between flex-wrap gap-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-1">Gestion des Commandes</h1>
+            <p className="text-gray-600 text-sm md:text-base">Suivi des commandes d'ordinateurs portables</p>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="text-right">
+              <p className="text-sm font-medium text-gray-900">{currentUser.full_name || currentUser.username}</p>
+              <p className="text-xs text-gray-500">{currentUser.role}</p>
             </div>
-          ))}
-
-          {filteredOrders.length === 0 && (
-            <div className="bg-white p-12 rounded-xl shadow-sm border border-gray-200 text-center">
-              <Package className="mx-auto mb-4 text-gray-400" size={48} />
-              <p className="text-gray-600 text-lg">Aucune commande trouvée</p>
-              <p className="text-gray-500 text-sm mt-2">Ajustez vos filtres ou créez une nouvelle commande</p>
-            </div>
-          )}
+            <button
+              onClick={handleLogout}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-sm"
+            >
+              Déconnexion
+            </button>
+          </div>
         </div>
-      </div>
 
-      {/* Modals */}
-      {showUserManagement && (
-        <UserManagement currentUser={currentUser} onClose={() => setShowUserManagement(false)} />
-      )}
-
-      {showAddForm && isAdmin && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 flex justify-between items-center sticky top-0">
-              <h2 className="text-2xl font-bold text-white">Nouvelle Commande</h2>
-              <button onClick={() => setShowAddForm(false)} className="p-2 hover:bg-white/20 rounded-lg transition text-white">
-                <X size={24} />
-              </button>
+        {/* Stats Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4 mb-6">
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-gray-600 mb-1">Total</p>
+                <p className="text-xl md:text-2xl font-bold text-gray-900">{stats.total}</p>
+              </div>
+              <Package className="text-blue-500" size={24} />
             </div>
-            <div className="p-6 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Client *</label>
-                  <input
-                    type="text"
-                    value={newOrder.client}
-                    onChange={(e) => setNewOrder({...newOrder, client: e.target.value})}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Téléphone *</label>
-                  <input
-                    type="text"
-                    value={newOrder.telephone}
-                    onChange={(e) => setNewOrder({...newOrder, telephone: e.target.value})}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Produit *</label>
-                  <input
-                    type="text"
-                    value={newOrder.produit}
-                    onChange={(e) => setNewOrder({...newOrder, produit: e.target.value})}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Prix Achat (¥)</label>
-                  <input
-                    type="number"
-                    value={newOrder.prixAchatYuan}
-                    onChange={(e) => {
-                      const yuan = e.target.value;
-                      setNewOrder({
-                        ...newOrder,
-                        prixAchatYuan: yuan,
-                        prixVenteCFA: calculateFromYuan(yuan, newOrder.tauxChange)
-                      });
-                    }}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Taux de Change</label>
-                  <input
-                    type="number"
-                    value={newOrder.tauxChange}
-                    onChange={(e) => {
-                      const taux = e.target.value;
-                      setNewOrder({
-                        ...newOrder,
-                        tauxChange: taux,
-                        prixVenteCFA: calculateFromYuan(newOrder.prixAchatYuan, taux)
-                      });
-                    }}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Prix Vente (FCFA) *</label>
-                  <input
-                    type="number"
-                    value={newOrder.prixVenteCFA}
-                    onChange={(e) => setNewOrder({...newOrder, prixVenteCFA: e.target.value})}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Date Expédition</label>
-                  <input
-                    type="date"
-                    value={newOrder.dateExpedition}
-                    onChange={(e) => setNewOrder({...newOrder, dateExpedition: e.target.value})}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Notes</label>
-                  <textarea
-                    value={newOrder.notes}
-                    onChange={(e) => setNewOrder({...newOrder, notes: e.target.value})}
-                    rows="3"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  ></textarea>
-                </div>
+          </div>
+          
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-gray-600 mb-1">En Cours</p>
+                <p className="text-xl md:text-2xl font-bold text-orange-600">{stats.enCours}</p>
               </div>
-              <div className="flex gap-3 pt-4">
-                <button
-                  onClick={handleAddOrder}
-                  className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition"
-                >
-                  Ajouter la Commande
-                </button>
-                <button
-                  onClick={() => setShowAddForm(false)}
-                  className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
-                >
-                  Annuler
-                </button>
+              <Clock className="text-orange-500" size={24} />
+            </div>
+          </div>
+          
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-gray-600 mb-1">Livrées</p>
+                <p className="text-xl md:text-2xl font-bold text-green-600">{stats.livrees}</p>
               </div>
+              <CheckCircle className="text-green-500" size={24} />
+            </div>
+          </div>
+          
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 col-span-2 md:col-span-1">
+            <div>
+              <p className="text-xs text-gray-600 mb-1">CA Encaissé</p>
+              <p className="text-base md:text-lg font-bold text-purple-600">{formatCFA(stats.chiffreAffaires)}</p>
+            </div>
+          </div>
+          
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 col-span-2 md:col-span-1">
+            <div>
+              <p className="text-xs text-gray-600 mb-1">À Encaisser</p>
+              <p className="text-base md:text-lg font-bold text-yellow-600">{formatCFA(stats.aEncaisser)}</p>
             </div>
           </div>
         </div>
-      )}
 
-      {showEditForm && editingOrder && isAdmin && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 flex justify-between items-center sticky top-0">
-              <h2 className="text-2xl font-bold text-white">Modifier la Commande</h2>
-              <button onClick={() => setShowEditForm(false)} className="p-2 hover:bg-white/20 rounded-lg transition text-white">
-                <X size={24} />
-              </button>
+        {/* Search and Filter Bar */}
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-6">
+          <div className="flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
+            <div className="flex flex-col md:flex-row gap-3 flex-1">
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                <input
+                  type="text"
+                  placeholder="Rechercher..."
+                  className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <Filter size={18} className="text-gray-600" />
+                <select
+                  className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={filterStatut}
+                  onChange={(e) => setFilterStatut(e.target.value)}
+                >
+                  {statuts.map(statut => (
+                    <option key={statut} value={statut}>{statut}</option>
+                  ))}
+                </select>
+              </div>
             </div>
-            <div className="p-6 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Client</label>
-                  <input
-                    type="text"
-                    value={editingOrder.client}
-                    onChange={(e) => setEditingOrder({...editingOrder, client: e.target.value})}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Téléphone</label>
-                  <input
-                    type="text"
-                    value={editingOrder.telephone}
-                    onChange={(e) => setEditingOrder({...editingOrder, telephone: e.target.value})}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Produit</label>
-                  <input
-                    type="text"
-                    value={editingOrder.produit}
-                    onChange={(e) => setEditingOrder({...editingOrder, produit: e.target.value})}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Prix Vente (FCFA)</label>
-                  <input
-                    type="number"
-                    value={editingOrder.prix_vente_cfa}
-                    onChange={(e) => setEditingOrder({...editingOrder, prix_vente_cfa: parseFloat(e.target.value)})}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Montant Payé</label>
-                  <input
-                    type="number"
-                    value={editingOrder.montant_paye}
-                    onChange={(e) => {
-                      const paye = parseFloat(e.target.value);
-                      setEditingOrder({
-                        ...editingOrder,
-                        montant_paye: paye,
-                        montant_restant: editingOrder.prix_vente_cfa - paye
-                      });
-                    }}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Date Expédition</label>
-                  <input
-                    type="date"
-                    value={editingOrder.date_expedition || ''}
-                    onChange={(e) => setEditingOrder({...editingOrder, date_expedition: e.target.value})}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Statut</label>
+            
+            <button
+              onClick={() => setShowAddForm(true)}
+              className="flex items-center justify-center gap-2 px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition shadow-lg text-sm md:text-base whitespace-nowrap"
+            >
+              <Plus size={20} />
+              Nouvelle Commande
+            </button>
+          </div>
+        </div>
+
+        {/* Orders Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+          {filteredOrders.map((order) => (
+            <div key={order.id} className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200 hover:shadow-xl transition">
+              <div className="p-5">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex-1">
+                    <h3 className="text-xl font-bold text-gray-900 mb-1">{order.client}</h3>
+                    <p className="text-sm text-gray-600">{order.telephone}</p>
+                  </div>
                   <select
-                    value={editingOrder.statut}
-                    onChange={(e) => setEditingOrder({...editingOrder, statut: e.target.value})}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={order.statut}
+                    onChange={(e) => handleStatutChange(order.id, e.target.value)}
+                    className={`px-3 py-1 rounded-full text-xs font-semibold border ${getStatutColor(order.statut)} cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500`}
                   >
                     {statuts.filter(s => s !== 'Tous').map(statut => (
                       <option key={statut} value={statut}>{statut}</option>
                     ))}
                   </select>
                 </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Notes</label>
-                  <textarea
-                    value={editingOrder.notes || ''}
-                    onChange={(e) => setEditingOrder({...editingOrder, notes: e.target.value})}
-                    rows="3"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  ></textarea>
+
+                <div className="mb-4">
+                  <p className="text-gray-700 font-medium mb-2">{order.produit}</p>
+                </div>
+
+                <div className="space-y-2 mb-4 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Prix d'achat:</span>
+                    <span className="font-semibold text-gray-900">{formatYuan(order.prix_achat_yuan)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Taux de change:</span>
+                    <span className="font-semibold text-gray-900">{order.taux_change} FCFA/¥</span>
+                  </div>
+                  <div className="flex justify-between border-t pt-2">
+                    <span className="text-gray-600">Prix de vente:</span>
+                    <span className="font-bold text-lg text-blue-600">{formatCFA(order.prix_vente_cfa)}</span>
+                  </div>
+                  <div className="flex justify-between bg-yellow-50 -mx-5 px-5 py-2">
+                    <span className="text-gray-700 font-medium">Acompte (70%):</span>
+                    <span className="font-bold text-yellow-700">{formatCFA(order.acompte)}</span>
+                  </div>
+                  <div className="flex justify-between bg-green-50 -mx-5 px-5 py-2">
+                    <span className="text-gray-700 font-medium">Solde (30%):</span>
+                    <span className="font-bold text-green-700">{formatCFA(order.solde)}</span>
+                  </div>
+                  <div className="flex justify-between pt-2 border-t">
+                    <span className="text-gray-600">Montant payé:</span>
+                    <span className="font-semibold text-green-600">{formatCFA(order.montant_paye)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Montant restant:</span>
+                    <span className="font-semibold text-red-600">{formatCFA(order.montant_restant)}</span>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5 text-xs text-gray-600 mb-4">
+                  <div className="flex items-center gap-2">
+                    <Calendar size={14} />
+                    <span>Commande: {order.date_commande ? new Date(order.date_commande).toLocaleDateString('fr-FR') : '-'}</span>
+                  </div>
+                  {order.date_acompte && (
+                    <div className="flex items-center gap-2">
+                      <DollarSign size={14} />
+                      <span>Acompte: {new Date(order.date_acompte).toLocaleDateString('fr-FR')}</span>
+                    </div>
+                  )}
+                  {order.date_expedition && (
+                    <div className="flex items-center gap-2">
+                      <Package size={14} />
+                      <span>Expédition: {new Date(order.date_expedition).toLocaleDateString('fr-FR')}</span>
+                    </div>
+                  )}
+                  {order.date_arrivee_prevu && (
+                    <div className="flex items-center gap-2">
+                      <Clock size={14} />
+                      <span>Arrivée prévue: {new Date(order.date_arrivee_prevu).toLocaleDateString('fr-FR')}</span>
+                    </div>
+                  )}
+                  {order.date_arrivee_effective && (
+                    <div className="flex items-center gap-2">
+                      <CheckCircle size={14} />
+                      <span>Arrivée effective: {new Date(order.date_arrivee_effective).toLocaleDateString('fr-FR')}</span>
+                    </div>
+                  )}
+                  {order.date_solde && (
+                    <div className="flex items-center gap-2">
+                      <DollarSign size={14} />
+                      <span>Solde payé: {new Date(order.date_solde).toLocaleDateString('fr-FR')}</span>
+                    </div>
+                  )}
+                </div>
+
+                {order.notes && (
+                  <div className="mb-4 p-2 bg-gray-50 rounded text-xs text-gray-600 italic">
+                    {order.notes}
+                  </div>
+                )}
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleEditClick(order)}
+                    className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition"
+                  >
+                    <Edit size={16} />
+                    Modifier
+                  </button>
+                  <button
+                    onClick={() => handleDeleteClick(order)}
+                    className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm bg-red-50 text-red-700 rounded-lg hover:bg-red-100 transition"
+                  >
+                    <Trash2 size={16} />
+                    Supprimer
+                  </button>
                 </div>
               </div>
-              <div className="flex gap-3 pt-4">
-                <button
-                  onClick={handleUpdateOrder}
-                  className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition"
-                >
-                  Enregistrer
-                </button>
-                <button
-                  onClick={() => setShowEditForm(false)}
-                  className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
-                >
-                  Annuler
-                </button>
-              </div>
             </div>
-          </div>
+          ))}
         </div>
-      )}
 
-      {showDeleteConfirm && orderToDelete && isAdmin && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="bg-red-100 p-3 rounded-full">
-                <AlertCircle className="text-red-600" size={24} />
-              </div>
-              <h2 className="text-xl font-bold text-gray-900">Confirmer la suppression</h2>
-            </div>
-            <p className="text-gray-600 mb-6">
-              Êtes-vous sûr de vouloir supprimer la commande de <strong>{orderToDelete.client}</strong> ?
-              Cette action est irréversible.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={handleDeleteOrder}
-                className="flex-1 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
-              >
-                Supprimer
-              </button>
-              <button
-                onClick={() => setShowDeleteConfirm(false)}
-                className="flex-1 px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
-              >
-                Annuler
-              </button>
-            </div>
+        {filteredOrders.length === 0 && (
+          <div className="text-center py-12">
+            <Package className="mx-auto text-gray-400 mb-4" size={64} />
+            <h3 className="text-xl font-semibold text-gray-700 mb-2">Aucune commande trouvée</h3>
+            <p className="text-gray-500">Commencez par ajouter votre première commande</p>
           </div>
-        </div>
-      )}
-    </div>
-  );
-};
+        )}
+      </div>
 
-export default OrderTrackingApp;
+      {/* Modal Ajout - Partie 1 */}
